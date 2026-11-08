@@ -51,7 +51,7 @@ intervals = [
      6.0  20.0   1.00   1.00   1.00
 ];
 
-event_times = intervals(2:end,1);
+event_times = [1.0; 1.2];
 assert(abs(intervals(1,1))<1e-12 && ...
        abs(intervals(end,2)-simulationEndTime)<1e-12, ...
        'Intervals must cover 0 to 20 seconds.');
@@ -143,8 +143,13 @@ fprintf('Initial speed: %.6f pu = %.6f rad/s\\n',omega_pu(1),omega_actual(1));
 fprintf('Final speed:   %.6f pu = %.6f rad/s\\n',omega_pu(end),omega_actual(end));
 fprintf('Synchronous angular speed: %.6f rad/s\\n',p.Omega_b);
 
+%% Ensure results directory exists
+if ~exist('results','dir')
+    mkdir('results');
+end
+
 %% 7. Plot currents
-figure('Name','SG4 Currents','Color','w');
+figCurrents = figure('Name','SG4 Currents','Color','w');
 subplot(2,1,1);
 plot(t_all,id_all,'LineWidth',1.5);
 ylabel('i_d (p.u.)'); xlabel('Time (s)');
@@ -154,9 +159,10 @@ plot(t_all,iq_all,'LineWidth',1.5);
 ylabel('i_q (p.u.)'); xlabel('Time (s)');
 title('Quadrature-Axis Current'); markEvents(event_times); grid on;
 sgtitle('SG4 Generator Currents');
+exportgraphics(figCurrents, 'results/sg4_currents.png', 'Resolution', 300);
 
 %% 8. Plot active and reactive power
-figure('Name','SG4 Power','Color','w');
+figPower = figure('Name','SG4 Power','Color','w');
 subplot(2,1,1);
 plot(t_all,Pg_all,'LineWidth',1.5); hold on;
 plot(t_all,Pm_all,'--','LineWidth',1.2);
@@ -169,9 +175,10 @@ plot(t_all,Qg_all,'LineWidth',1.5);
 ylabel('Q_g (p.u.)'); xlabel('Time (s)');
 title('Generator Reactive Power'); markEvents(event_times); grid on;
 sgtitle('SG4 Generator Power');
+exportgraphics(figPower, 'results/sg4_power.png', 'Resolution', 300);
 
 %% 9. Plot states (delta shown in degrees; x_all remains in radians)
-figure('Name','SG4 States','Color','w');
+figStates = figure('Name','SG4 States','Color','w');
 statePlotData = x_all;
 statePlotData(:,1) = delta_deg;
 stateNames = {'\delta (deg)','\omega (p.u.)','E_q'' (p.u.)','E_d'' (p.u.)'};
@@ -182,9 +189,10 @@ for k = 1:4
 end
 xlabel('Time (s)');
 sgtitle('SG4 State Trajectories');
+exportgraphics(figStates, 'results/sg4_states.png', 'Resolution', 300);
 
 %% 10. Plot disturbance inputs
-figure('Name','SG4 Disturbance Inputs','Color','w');
+figInputs = figure('Name','SG4 Disturbance Inputs','Color','w');
 subplot(3,1,1);
 plot(t_all,V_all,'LineWidth',1.5);
 ylabel('V (p.u.)'); title('Terminal Voltage'); markEvents(event_times); grid on;
@@ -196,34 +204,29 @@ plot(t_all,Pm_all,'LineWidth',1.5);
 ylabel('P_m (p.u.)'); xlabel('Time (s)');
 title('Mechanical Power Input'); markEvents(event_times); grid on;
 sgtitle('Applied Disturbances');
+exportgraphics(figInputs, 'results/sg4_disturbances.png', 'Resolution', 300);
 
-%% 11. Save results: 20 s, delta in radians
-if ~exist('results','dir')
-    mkdir('results');
-end
+%% 11. Save simulation data: 20 s, delta in radians
 save('results/sg4_disturbance_20s.mat', ...
     't_all','x_all','id_all','iq_all','Pg_all','Qg_all', ...
     'p','x0','Pm0','vf0','theta_all','V_all','Pm_all','vf_all', ...
     'kPg_all','intervals','event_times','dt');
-
-fprintf('\\nSaved: results/sg4_disturbance_20s.mat\\n');
-fprintf('Saved delta unit: radians. Plot delta unit: degrees.\\n');
+fprintf('\nSaved: results/sg4_disturbance_20s.mat\n');
 
 %% 12. Generator electrical frequency
 freq_t = omega_pu*p.f;
-figure('Name','SG4 Frequency','Color','w');
+figFreq = figure('Name','SG4 Frequency','Color','w');
 plot(t_all,freq_t,'LineWidth',1.5);
 markEvents(event_times);
 xlabel('Time (s)'); ylabel('Frequency (Hz)');
 title('Generator Electrical Frequency'); grid on;
+exportgraphics(figFreq, 'results/sg4_frequency.png', 'Resolution', 300);
 
 %% 13. FFT of rotor angle (degrees)
 Ts = mean(diff(t_all));
 Fs = 1/Ts;
 Nf = numel(delta_deg);
 delta_ac = delta_deg-mean(delta_deg);
-
-% Hann window without requiring hann() from the Signal Processing Toolbox.
 w = 0.5*(1-cos(2*pi*(0:Nf-1)'/(Nf-1)));
 Y = fft(delta_ac.*w);
 P2 = abs(Y/Nf);
@@ -233,31 +236,32 @@ if numel(P1)>2
 end
 P1 = P1/mean(w);
 fax = Fs*(0:floor(Nf/2))/Nf;
-
-figure('Name','Rotor Angle FFT','Color','w');
+figFFT = figure('Name','Rotor Angle FFT','Color','w');
 plot(fax,P1,'LineWidth',1.5);
 xlim([0 5]); xlabel('Frequency (Hz)'); ylabel('Amplitude (deg)');
 title('Single-Sided Amplitude Spectrum of Rotor Angle'); grid on;
 if numel(P1)>1
     [~,idx] = max(P1(2:end));
-    fprintf('Dominant frequency of delta: %.4f Hz\\n',fax(idx+1));
+    fprintf('Dominant frequency of delta: %.4f Hz\n',fax(idx+1));
 end
+exportgraphics(figFFT, 'results/sg4_fft.png', 'Resolution', 300);
 
-%% 14. Spectrogram (requires Signal Processing Toolbox)
+%% 14. Spectrogram
 win_len = 400;
 overlap = win_len-10;
 nfft = 2048;
 if Nf>=win_len
     specWindow = 0.5*(1-cos(2*pi*(0:win_len-1)'/(win_len-1)));
-    [S,F,T] = spectrogram(delta_ac,specWindow,overlap,nfft,Fs);
-    figure('Name','Rotor Angle Spectrogram','Color','w');
-    imagesc(T+t_all(1),F,20*log10(abs(S)+eps));
+    [S_spec,F,T] = spectrogram(delta_ac,specWindow,overlap,nfft,Fs);
+    figSpec = figure('Name','Rotor Angle Spectrogram','Color','w');
+    imagesc(T+t_all(1),F,20*log10(abs(S_spec)+eps));
     axis xy; ylim([0 5]); colorbar; colormap turbo;
     xlabel('Time (s)'); ylabel('Frequency (Hz)');
     title('Spectrogram of Rotor Angle'); hold on;
     for te = event_times'
         xline(te,'--w');
     end
+    exportgraphics(figSpec, 'results/sg4_spectrogram.png', 'Resolution', 300);
 else
     warning('Not enough samples for the selected spectrogram window.');
 end

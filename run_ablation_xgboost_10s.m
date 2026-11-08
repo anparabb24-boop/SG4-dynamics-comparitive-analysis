@@ -27,10 +27,10 @@ VARIANTS_TO_RUN = 1:5;
 
 % Plots: reconstruction figure of every variant (standard split) saved as PNG
 % and, with SHOW_PLOTS = true, also kept open on screen.
-SHOW_PLOTS       = true;
+SHOW_PLOTS       = false;
 PLOT_EXPERIMENT  = 'combined';       % e.g. 'mechanical', 'combined', 'baseline'
 PLOT_NOISE_TYPE  = 'uniform';       % e.g. 'impulsive'
-PLOT_NOISE_LEVEL = 0.01;       % e.g. 0.10
+PLOT_NOISE_LEVEL = 0.1;       % e.g. 0.10
 
 % Dataset file. '' = auto-detect (tries the paths below in order).
 datasetFile = '';
@@ -43,9 +43,9 @@ candidateFiles = { ...
 % Examples:  TRAIN_NOISE_TYPES = {'gaussian'};   TRAIN_NOISE_LEVELS = [0.01 0.05];
 % Levels are fractions (0.01 = 1 %). Each run prints the mix it trained on.
 TRAIN_NOISE_TYPES  = {'uniform'};
-TRAIN_NOISE_LEVELS = 0.01;
+TRAIN_NOISE_LEVELS = 0.1;
 TEST_NOISE_TYPES   = {'uniform'};
-TEST_NOISE_LEVELS  = 0.01;
+TEST_NOISE_LEVELS  = 0.1;
 
 %% ---- python environment -------------------------------------------------
 pe = pyenv;
